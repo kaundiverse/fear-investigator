@@ -1,0 +1,23 @@
+{
+  "name": "fbi-telegram-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "nodemon --no-deprecation index.js",
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.10.0",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "googleapis": "^153.0.0",
+    "nodemon": "^3.1.10",
+    "openai": "^5.10.1",
+    "telegraf": "^4.16.3"
+  },
+  "description": ""
+}
