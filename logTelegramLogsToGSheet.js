@@ -1,6 +1,6 @@
 require('dotenv').config({ quiet: true });
 const { google } = require("googleapis");
-const credentials = require("./fear-investigator-telegrambot-0246c69c2b58.json");
+// const credentials = require("./fear-investigator-telegrambot-0246c69c2b58.json");
 
 const auth = new google.auth.GoogleAuth({
   credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
