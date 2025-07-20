@@ -1,4 +1,4 @@
-require('dotenv').config({ quiet: true });
+require("dotenv").config({ quiet: true });
 const { google } = require("googleapis");
 const credentials = JSON.parse(
   Buffer.from(process.env.GOOGLE_CREDENTIALS, "base64").toString("utf-8")
@@ -29,8 +29,8 @@ async function logToSheet(data) {
         data.chat_id,
         data.chat_type || "",
         data.chat_title || "",
-        data.prompt || "",
-        data.response || "",
+        data.text || "", // ✅ changed from data.prompt
+        data.bot_response || "", // ✅ changed from data.response
         new Date().toISOString(),
       ],
     ];
@@ -46,7 +46,10 @@ async function logToSheet(data) {
   } catch (error) {
     console.error("❌ Error logging to sheet:", error.message || error);
     if (error.response?.data) {
-      console.error("Google API response error:", JSON.stringify(error.response.data, null, 2));
+      console.error(
+        "Google API response error:",
+        JSON.stringify(error.response.data, null, 2)
+      );
     }
   }
 }
