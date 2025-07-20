@@ -1,45 +1,54 @@
 require('dotenv').config({ quiet: true });
 const { google } = require("googleapis");
-// const credentials = require("./fear-investigator-telegrambot-0246c69c2b58.json");
+const credentials = JSON.parse(
+  Buffer.from(process.env.GOOGLE_CREDENTIALS, "base64").toString("utf-8")
+);
 
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+  credentials,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
 const SHEET_ID = "1q_T7-iL7rw2xNX-D8G8cnsdMmes-OKDTLFrnG3-cTE8"; // From Sheet URL
 
 async function logToSheet(data) {
-  const client = await auth.getClient();
-  const sheets = google.sheets({ version: "v4", auth: client });
+  try {
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: "v4", auth: client });
 
-  const values = [
-    [
-      data.id, // Telegram user ID
-      data.is_bot, // true/false
-      data.first_name || "",
-      data.last_name || "",
-      data.username || "",
-      data.language_code || "",
-      data.message_id, // Telegram message ID
-      data.date, // UNIX timestamp
-      data.chat_id, // Chat ID
-      data.chat_type || "", // private, group, etc.
-      data.chat_title || "",
-      data.prompt || "", // User message
-      data.response || "", // Bot reply
-      new Date().toISOString(), // Timestamp of log
-    ],
-  ]; 
+    const values = [
+      [
+        data.id,
+        data.is_bot,
+        data.first_name || "",
+        data.last_name || "",
+        data.username || "",
+        data.language_code || "",
+        data.message_id,
+        data.date,
+        data.chat_id,
+        data.chat_type || "",
+        data.chat_title || "",
+        data.prompt || "",
+        data.response || "",
+        new Date().toISOString(),
+      ],
+    ];
 
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: "1q_T7-iL7rw2xNX-D8G8cnsdMmes-OKDTLFrnG3-cTE8",
-    range: "telegram_session_schema!A1",
-    valueInputOption: "RAW",
-    requestBody: { values },
-  });
+    const result = await sheets.spreadsheets.values.append({
+      spreadsheetId: "1q_T7-iL7rw2xNX-D8G8cnsdMmes-OKDTLFrnG3-cTE8",
+      range: "telegram_session_schema!A1",
+      valueInputOption: "RAW",
+      requestBody: { values },
+    });
 
-  console.log("Logged to sheet");
+    console.log("Logged to sheet:", result.statusText || "Success");
+  } catch (error) {
+    console.error("❌ Error logging to sheet:", error.message || error);
+    if (error.response?.data) {
+      console.error("Google API response error:", JSON.stringify(error.response.data, null, 2));
+    }
+  }
 }
 
 module.exports = { logToSheet };
