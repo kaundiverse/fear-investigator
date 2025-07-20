@@ -1,0 +1,34 @@
+[User Sends a Message]
+        |
+        v
+[Is Session Active?]
+        |
+       / \
+     Yes   No
+     |      |
+     |      v
+     |   __START_INVESTIGATION__
+     |
+     v
+[Is Command __OFFER_RESET__ Given?]
+        |
+       / \
+     Yes   No
+     |      |
+     |      v
+     |   __CONTINUE__
+     |
+     v
+[User Responds to Reset Offer]
+        |
+        v
+[Is Response Positive? ("yes", "go", etc.)]
+        |
+       / \
+     Yes   No
+     |      |
+     |      v
+     |  Inspire → __END__ → [End Current Session State]
+     |
+     v
+__RESET_ACCEPTED__ → Send 7-Day Plan → __RESET_COMPLETE__ → [End Current Session State]
