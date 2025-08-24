@@ -43,13 +43,13 @@ Sample questions to guide you:
 - “Are you negotiating with fear?”
 
 Your job is to:
-1. Start with a bold question
-2. Ask deeper questions for 6–9 replies
-3. Then deliver:
+1. Start with one bold question.
+2. Ask deeper follow-up questions for 6–9 total exchanges. Never go beyond 9.
+3. After the final exchange, conclude by delivering:
    - Confrontation: [One punchy sentence calling them out]
    - Root Fear: [One sentence naming the fear]
    - Rule to Live By: [One clear new standard]
-4. Ask: “Want the 7-Day Tactical Reset?” If yes, send it.
+4. Then ask: “Want the 7-Day Tactical Reset?” If yes, send it.
 
 You are not a chatbot. You are here to wake them up.
 Begin.
@@ -107,87 +107,71 @@ bot.action('START_INVESTIGATION', async (ctx) => {
 });
 
 // 🧠 Core convo handler
+// 🧠 Core convo handler
 async function handleAgentKConversation(ctx, userInput) {
-  // console.log("Incoming Context:", ctx);
   console.log("User Input:", userInput);
 
-  const { message } = ctx.update; // Telegram update payload
-  const { from, chat, message_id, date, text } = message;
-
+  const { from, chat, message_id, date, text } = ctx.update.message;
   const userId = chat.id;
 
   const logData = {
     id: from.id,
     is_bot: from.is_bot,
-    first_name: from.first_name || '',
-    last_name: from.last_name || '',
-    username: from.username || '',
-    language_code: from.language_code || '',
-    message_id,
-    date: new Date(date * 1000).toISOString(),
+    first_name: from.first_name,
+    username: from.username,
     chat_id: chat.id,
-    chat_type: chat.type,
-    chat_title: chat.title || '',
-    text: userInput || text || '',
-    bot_response: '',
+    message_id,
+    date,
+    text,
   };
 
   try {
-    // Call your model
-    let res = await trySonarModels(userId);
-    console.log("Sonar Response:", res.data);
+    // ✅ Count number of turns so far (user + assistant)
+    const exchanges = (sessions[userId] || []).filter(
+      m => m.role === "user" || m.role === "assistant"
+    ).length;
 
-    const reply = cleanReply(res.data.choices?.[0]?.message?.content || '');
-    if (!reply) throw new Error("Empty reply from Sonar API");
-
-    logData.bot_response = reply;
-
-    // Command recognition
-    if (/__RESET_ACCEPTED__/.test(reply)) {
-      await ctx.reply(
-        `🔥 *Here’s your 7-Day Tactical Reset Plan:*\n\n1. Own your fear in writing  \n2. Do one thing you’re avoiding  \n3. Voice the hard truth to someone  \n4. Plan your week like you mean it  \n5. Face a rejection on purpose  \n6. Say no to one “should”  \n7. Move your body and commit again`,
-        { parse_mode: 'Markdown' }
-      );
-      delete sessions[userId];
-      return;
+    // ✅ Initialize session if new
+    if (!sessions[userId]) {
+      sessions[userId] = [
+        { role: "system", content: baseSystemPrompt }
+      ];
     }
 
-    if (/__RESET_COMPLETE__|__END__/.test(reply)) {
-      delete sessions[userId];
-      return ctx.reply('🛑 Session closed. Type anything to start again.');
+    // ✅ If we’ve reached 9 rounds (18 messages), push concluding instruction
+    if (exchanges >= 18) {
+      sessions[userId].push({
+        role: "user",
+        content: `The user just said: "${userInput}"
+
+Now conclude the coaching session.
+
+Deliver:
+- Confrontation: [One punchy sentence calling them out]
+- Root Fear: [One sentence naming the fear]
+- Rule to Live By: [One clear new standard]
+Then ask: "Want the 7-Day Tactical Reset?"`
+      });
+    } else {
+      // Normal flow: just push user’s message
+      sessions[userId].push({ role: "user", content: userInput });
     }
 
-    if (/__START_INVESTIGATION__/.test(reply)) {
-      delete sessions[userId];
-      return ctx.reply(
-        'Session ended. Ready to begin again?',
-        Markup.inlineKeyboard([
-          Markup.button.callback('🧠 Start Investigation', 'START_INVESTIGATION'),
-        ])
-      );
-    }
+    // 🔥 Call Perplexity/Sonar API with updated session
+    const reply = await trySonarModels(userId);
 
-    // Normal conversation flow
-    if (!sessions[userId]) sessions[userId] = [];
-    sessions[userId].push({ role: 'assistant', content: reply });
+    // Save assistant reply
+    sessions[userId].push({ role: "assistant", content: reply });
 
-    await ctx.reply(reply, { parse_mode: 'Markdown' });
-    await logToSheet(logData);
+    // Send reply back to Telegram
+    await ctx.reply(reply);
+
   } catch (err) {
-    console.error("Agent K Error:", err.message);
-
-    if (err.code === 'ECONNABORTED') {
-      return ctx.reply('⚠️ Request timed out. Please try again.');
-    }
-    if (err.response?.status === 401) {
-      return ctx.reply('⚠️ Invalid Perplexity API key.');
-    }
-    if (err.response?.status === 429) {
-      return ctx.reply('⚠️ Rate limit hit. Wait and retry.');
-    }
-    return ctx.reply('⚠️ Something went wrong. Try again later.');
+    console.error("Error in handleAgentKConversation:", err);
+    await ctx.reply("Something went wrong. Try again.");
   }
 }
+
 
 
 // 🔁 Try sonar-pro, fallback to sonar
@@ -452,7 +436,7 @@ console.log('\n🧠 Agent K is live and ready to interrogate.\n');
 //       delete sessions[userId];
 //     }
 //   } catch (err) {
-//     console.error('Sonar‑Pro API Error:', err.message);
+    // console.error('Sonar‑Pro API Error:', err.message);
 //     if (err.code === 'ECONNABORTED') {
 //       await ctx.reply('⚠️ Request timed out. Please try again.');
 //     } else if (err.response?.status === 401) {
