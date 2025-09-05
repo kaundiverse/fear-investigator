@@ -286,77 +286,42 @@ bot.action('START_INVESTIGATION', async (ctx) => {
 async function handleAgentKConversation(ctx, userInput) {
   const userId = ctx.chat.id;
 
-  // NB: lock is already acquired by caller (bot.on('text')), do not set it here.
-  // show typing action
-  try {
-    await ctx.sendChatAction('typing').catch(() => {});
-  } catch (e) {
-    // ignore if chat action fails
+  // try {
+  //   await ctx.sendChatAction('typing').catch(() => {});
+  // } catch {}
+
+  const userMessages = sessions[userId].filter(m => m.role === 'user');
+  let extraInstruction = "";
+
+  if (userMessages.length < 6) {
+    extraInstruction = "Continue asking only sharp investigative questions. Do NOT reveal confrontation, fear, rule, or reset yet.";
+  } else if (userMessages.length >= 6 && userMessages.length <= 9) {
+    extraInstruction = "Now it’s time to deliver the final outcome. Provide Confrontation, Root Fear, Rule to Live By, and the full 7-Day Tactical Reset plan.";
   }
 
-  // prepare logging info
-  const msg = ctx.message;
-  const from = msg.from;
-  const chat = msg.chat;
-  const reply_to_message = msg.reply_to_message;
-
-  const logData = {
-    id: from.id,
-    is_bot: from.is_bot,
-    first_name: from.first_name || '',
-    last_name: from.last_name || '',
-    username: from.username || '',
-    language_code: from.language_code || '',
-    message_id: msg.message_id,
-    date: new Date(msg.date * 1000).toISOString(),
-    chat_id: chat.id,
-    chat_type: chat.type,
-    chat_title: chat.title || '',
-    text: userInput,
-    reply_to_message: reply_to_message?.text || '',
-    bot_response: '',
-  };
-
-  // console.log('sessions[userId]: ', sessions[userId]);
+  const messagesForModel = [
+    ...sessions[userId],
+    { role: 'system', content: extraInstruction }
+  ];
 
   try {
-    const { text: reply, modelUsed } = await callWithFallback(sessions[userId]);
+    const { text: reply, modelUsed } = await callWithFallback(messagesForModel);
 
-    if (!reply || !reply.trim()) {
-      throw new Error('Empty reply from model');
-    }
+    if (!reply || !reply.trim()) throw new Error('Empty reply from model');
 
-    // push assistant answer
     sessions[userId].push({ role: 'assistant', content: reply });
-    logData.bot_response = reply;
-
-    // send reply
     await ctx.reply(reply);
 
-    // log (best-effort)
-    try {
-      await logToSheet(logData);
-    } catch (sheetErr) {
-      console.warn('Failed to log to sheet:', sheetErr?.message || sheetErr);
-    }
-
-    // Auto-cleanup if conversation ends with final step
-    if (reply && (reply.includes('7-Day Tactical Reset') || reply.toLowerCase().includes('reset'))) {
+    // end session once reset delivered
+    if (reply.includes("7-Day Tactical Reset")) {
       delete sessions[userId];
     }
   } catch (err) {
-    console.error('OpenRouter call failed:', err?.response?.status, err?.message || err);
-    // User-friendly messages depending on error
-    const status = err?.response?.status;
-    if (status === 402) {
-      await ctx.reply('⚠️ Service requires credits. Please top up your OpenRouter account.');
-    } else if (status === 429) {
-      await ctx.reply('⚠️ Rate limit exceeded. Try again in 10 minutes. ');
-    } else {
-      await ctx.reply('⚠️ Something went wrong. Try again in a moment.');
-    }
+    console.error("OpenRouter call failed:", err?.response?.status, err?.message);
+    await ctx.reply("⚠️ Something went wrong. Try again in a moment.");
   }
 }
+
 
 // ---- TODO (future): implement process-level auto-restart on crash
 // For now we will not implement server restart logic — keep for next iteration.
