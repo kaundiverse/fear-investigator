@@ -317,7 +317,7 @@ async function handleAgentKConversation(ctx, userInput) {
     bot_response: '',
   };
 
-  console.log('sessions[userId]: ', sessions[userId]);
+  // console.log('sessions[userId]: ', sessions[userId]);
 
   try {
     const { text: reply, modelUsed } = await callWithFallback(sessions[userId]);
